@@ -25,6 +25,7 @@ It is especially useful for apps that were built quickly or with AI assistance (
 - **Vulnerability Score** — generates a 0–100 risk score broken down by category (Authentication, Data Exposure, Network Security, Input Validation)
 - **AI-Powered Recommendations** — uses Claude AI to suggest specific, prioritized fixes with code examples
 - **PDF Report Export** — download a full vulnerability report to share with your team
+- **NIST CSF 2.0 + MIT Framework Aligned** — assessments are structured around industry-recognized cybersecurity standards
 - **User Accounts** — save and revisit past scans via Supabase authentication
 
 ---
@@ -57,7 +58,7 @@ RiskAI-Scanner/
 │   │   └── services/
 │   │       ├── scanner.py       # Core scanning logic
 │   │       └── ai.py            # Claude API integration
-│   ├── .env                     # Secret keys (never committed)
+│   ├── .env                     # Secret keys 
 │   └── requirements.txt         # Python dependencies
 ├── extension/
 │   ├── public/
