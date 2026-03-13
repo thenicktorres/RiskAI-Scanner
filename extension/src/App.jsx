@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 const QUESTIONS = [
   // GOVERN
@@ -426,31 +426,142 @@ function QuestionnaireScreen({ answers, setAnswers, onSubmit }) {
   )
 }
 
+function AnimatedDots() {
+  const [dots, setDots] = useState("")
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots(prev => prev.length >= 3 ? "" : prev + ".")
+    }, 500)
+    return () => clearInterval(interval)
+  }, [])
+
+  return <span className="text-blue-400">{dots}</span>
+}
+
 function ResultsScreen({ answers, onRestart }) {
+  const [loading, setLoading] = useState(true)
+  const [results, setResults] = useState(null)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    async function fetchResults() {
+      try {
+        const response = await fetch("http://127.0.0.1:8000/api/scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ answers })
+        })
+        const data = await response.json()
+        setResults(data)
+      } catch (err) {
+        setError("Failed to connect to the backend. Make sure the server is running.")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchResults()
+  }, [])
+
+  const riskColors = {
+    CRITICAL: "text-red-500",
+    HIGH: "text-orange-400",
+    MEDIUM: "text-yellow-400",
+    LOW: "text-green-400"
+  }
+
+  const severityColors = {
+    Critical: "bg-red-900 text-red-300",
+    High: "bg-orange-900 text-orange-300",
+    Medium: "bg-yellow-900 text-yellow-300",
+    Low: "bg-green-900 text-green-300"
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[500px] p-6 text-center">
+        <div className="text-4xl mb-4 animate-spin">⏳</div>
+        <h2 className="text-lg font-bold text-white mb-2">AI Agent working on assessment<AnimatedDots /></h2>
+        <p className="text-gray-400 text-xs">Reviewing your answers against NIST CSF 2.0 & MIT Framework</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[500px] p-6 text-center">
+        <div className="text-4xl mb-4">⚠️</div>
+        <h2 className="text-lg font-bold text-white mb-2">Something went wrong</h2>
+        <p className="text-red-400 text-xs mb-6">{error}</p>
+        <button onClick={onRestart} className="w-full py-2 rounded-lg text-sm font-semibold bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700">
+          Try Again
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="p-6 min-h-[500px] flex flex-col">
-      <div className="text-2xl mb-3 text-center">⏳</div>
-      <h2 className="text-lg font-bold text-white text-center mb-2">Assessment Complete</h2>
-      <p className="text-gray-400 text-xs text-center mb-6">
-        Your answers are ready to be analyzed. AI scoring coming soon.
-      </p>
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-6 flex-1 overflow-y-auto max-h-[300px]">
-        <p className="text-gray-400 text-xs font-semibold mb-3">ANSWERS COLLECTED</p>
-        {Object.entries(answers).map(([id, val]) => {
-          const q = QUESTIONS.find(q => q.id === id)
-          return (
-            <div key={id} className="mb-3 border-b border-gray-800 pb-3 last:border-0 last:pb-0">
-              <p className="text-gray-300 text-xs mb-1">{q?.question}</p>
-              <span className={`text-xs font-bold ${val.answer === "yes" ? "text-green-400" : val.answer === "no" ? "text-red-400" : "text-blue-400"}`}>
-                {val.answer}
-              </span>
-              {val.followUp && (
-                <p className="text-gray-500 text-xs mt-1 italic">"{val.followUp}"</p>
-              )}
-            </div>
-          )
-        })}
+      {/* Overall Score */}
+      <div className="text-center mb-6">
+        <h2 className="text-sm font-bold text-gray-400 mb-1">OVERALL RISK SCORE</h2>
+        <div className="text-6xl font-bold text-white mb-1">{results.overall_score}</div>
+        <div className="text-xs text-gray-500 mb-2">out of 100</div>
+        <span className={`text-lg font-bold ${riskColors[results.risk_level]}`}>
+          {results.risk_level} RISK
+        </span>
       </div>
+
+      {/* NIST Function Scores */}
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-4">
+        <p className="text-gray-400 text-xs font-semibold mb-3">NIST CSF 2.0 SCORES</p>
+        {Object.entries(results.function_scores).map(([fn, score]) => (
+          <div key={fn} className="flex items-center gap-3 mb-2 last:mb-0">
+            <span className="text-gray-400 text-xs w-20">{fn}</span>
+            <div className="flex-1 bg-gray-800 rounded-full h-2">
+              <div
+                className={`h-2 rounded-full ${score >= 70 ? "bg-green-500" : score >= 40 ? "bg-yellow-500" : "bg-red-500"}`}
+                style={{ width: `${score}%` }}
+              />
+            </div>
+            <span className="text-white text-xs w-8 text-right">{score}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Vulnerabilities */}
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-4">
+        <p className="text-gray-400 text-xs font-semibold mb-3">TOP VULNERABILITIES</p>
+        {results.vulnerabilities.map((vuln, i) => (
+          <div key={i} className="mb-3 border-b border-gray-800 pb-3 last:border-0 last:pb-0">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-white text-xs font-semibold">{vuln.title}</span>
+              <span className={`text-xs px-2 py-0.5 rounded font-semibold ${severityColors[vuln.severity]}`}>
+                {vuln.severity}
+              </span>
+            </div>
+            <p className="text-gray-500 text-xs mb-1">{vuln.nist_function} — {vuln.nist_category}</p>
+            <p className="text-gray-400 text-xs">{vuln.description}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Recommendations */}
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-4">
+        <p className="text-gray-400 text-xs font-semibold mb-3">RECOMMENDATIONS</p>
+        {results.vulnerabilities.sort((a, b) => a.priority - b.priority).map((vuln, i) => (
+          <div key={i} className="mb-3 border-b border-gray-800 pb-3 last:border-0 last:pb-0">
+            <p className="text-blue-400 text-xs font-semibold mb-1">#{vuln.priority} — {vuln.title}</p>
+            <p className="text-gray-300 text-xs mb-1">{vuln.recommendation}</p>
+            {vuln.code_example && (
+              <pre className="bg-gray-950 border border-gray-700 rounded p-2 text-xs text-green-400 overflow-x-auto mt-1 whitespace-pre-wrap">
+                {vuln.code_example}
+              </pre>
+            )}
+          </div>
+        ))}
+      </div>
+
       <button
         onClick={onRestart}
         className="w-full py-2 rounded-lg text-sm font-semibold bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition-colors"
@@ -460,5 +571,4 @@ function ResultsScreen({ answers, onRestart }) {
     </div>
   )
 }
-
 export default App
