@@ -26,6 +26,7 @@ It is especially useful for apps that were built quickly or with AI assistance (
 - **AI-Powered Recommendations** — uses Claude AI to suggest specific, prioritized fixes with code examples
 - **PDF Report Export** — download a full vulnerability report to share with your team
 - **NIST CSF 2.0 + MIT Framework Aligned** — assessments are structured around industry-recognized cybersecurity standards
+- **OWASP Reference Functionality (in progress...)
 - **User Accounts** — save and revisit past scans via Supabase authentication
 
 ---
